@@ -233,6 +233,13 @@ def concat_df(ortho, perp):
     result = pd.concat([ortho, perp], sort=True)
     return result
 
+def buffer_filled_poly(img, n_iter):
+    if n_iter == 0:
+        return img
+    else:
+        buffered = dilation(img)
+        return buffer_filled_poly(buffered, n_iter - 1)
+
 def plot_grid(ortho, perp, dim, crop=True):
     background = np.zeros((800,800))
     lattice = pd.concat([ortho, perp])
@@ -263,6 +270,19 @@ def plot_original_corners(arr, crop=True):
     dim = [minx, miny, maxx, maxy]
     return blank, dim
 
+def plot_new_corners(df, dim, crop=True):
+    blank = np.zeros((800,800))
+    xs = np.array(df['x_coord']).astype(int)
+    ys = np.array(df['y_coord']).astype(int)
+    for i in range(len(xs)):
+        blank[xs[i]][ys[i]] = 255
+    if crop == True:
+        buffer = 25
+        minx, miny, maxx, maxy = dim
+        blank = blank[miny - buffer: maxy + buffer, minx - buffer: maxx + buffer]       
+    fig, ax = plt.subplots(1,1,figsize=(20,20))
+    ax.imshow(blank)
+    return blank
 
 def label_regions(lattice):
     assert len(np.unique(lattice)) == 2, \
@@ -298,25 +318,44 @@ def find_lattice_vertices(ortho, perp):
                              "y_coord": ycoords})    
     
     return vertices
+
+def filter_corners(filled_poly, vertices, buffer_dist=2):
+    """
+    TODO: make sure filled_poly is NOT cropped at this stage
+    """
+    
+    # buffer filled_poly
+    buffered = buffer_filled_poly(filled_poly, buffer_dist)
+    for i, row in vertices.iterrows():
+        x = row['x_coord'].astype(int)
+        y = row['y_coord'].astype(int)
+        if buffered[x][y] == 0:
+            vertices = vertices.drop(i, axis=0)
+    
+    return vertices
             
 
 if __name__ == "__main__":
     filt_para, filt_perp, m = find_orientation(corners)
     ortho = ortho_line(filt_para, m)
     perp = perp_line(filt_perp, m)
-    corner_pts, dim = plot_original(corners, crop=True)
+    corner_pts, dim = plot_original_corners(corners, crop=True)
     poly = draw_polygon(corners, crop=True)
-    fill = fill_polygon(corners, crop=True)
+    fill = fill_polygon(corners, crop=False)
     para = plot_parallels(ortho, dim, crop=True)
     perp_grid = plot_perpendiculars(perp, dim, crop=True)
     lattice = plot_grid(ortho, perp, dim, crop=True)
     regions = label_regions(lattice)
+    vertices = find_lattice_vertices(ortho, perp)
+    new_corners = plot_new_corners(vertices, dim, crop=True)
+    filt_vertices = filter_corners(fill, vertices, buffer_dist=5)
+    filt_corners = plot_new_corners(filt_vertices, dim, crop=True)
 
     fig, ax = plt.subplots(2,2,figsize=(20,20))
     ax[0][0].imshow(poly)
-    ax[0][1].imshow(corner_pts)
-    ax[1][0].imshow(lattice)
-    ax[1][1].imshow(regions)
+    ax[0][1].imshow(fill)
+    ax[1][0].imshow(new_corners)
+    ax[1][1].imshow(filt_corners)
     
     concat = concat_df(ortho, perp)
 
@@ -333,6 +372,9 @@ for seg in range(len(np.unique(regions))):
             output[region] = 127
             closed = closing(output)
             plt.imshow(closed)
+            
+buffered = buffer_filled_poly(fill, 5)
+
 #for seg in tqdm(range(len(np.unique(segs_sample_labelled)))):
 #    region = np.where(segs_sample_labelled == seg)
 #    if np.isin(img_sample[region], 1).any():
