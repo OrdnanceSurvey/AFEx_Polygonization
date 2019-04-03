@@ -118,22 +118,6 @@ def fill_polygon(arr, crop=True):
     ax.imshow(img)
     return img   
     
-
-def plot(arr, crop=True):
-    buffer = 25
-    intcorners = arr.astype(int)
-    blank = np.zeros((800,800))
-    minx, miny = intcorners[:, 1].min(), intcorners[:, 0].min()
-    maxx, maxy = intcorners[:, 1].max(), intcorners[:, 0].max()
-    for i in range(len(arr)):
-        blank[intcorners[i, 0]][intcorners[i, 1]] = 255
-    if crop == True:
-        blank = blank[miny - buffer: maxy + buffer, minx - buffer: maxx + buffer]
-    fig, ax = plt.subplots(1,1,figsize=(20,20))
-    ax.imshow(blank)
-    dim = [minx, miny, maxx, maxy]
-    return blank, dim
-
 def ortho_line(filt_para, m):
     """
     Input is a FILTERED dataframe.
@@ -149,6 +133,7 @@ def ortho_line(filt_para, m):
     """
     starts = []
     ends = []
+    intercepts = []
     for index, row in filt_para.iterrows():
         orig_start, orig_end = row['Start Vertex'], row['End Vertex']
         intercept =  (((- 1 / 2) * m) * (orig_start[0] + orig_end[0])) + ((1/2) * (orig_start[1] + (orig_end[1])))
@@ -164,7 +149,10 @@ def ortho_line(filt_para, m):
         end = (new_end_x, - new_end_y)
         starts.append(start)
         ends.append(end)
+        intercepts.append(intercept)
         
+    filt_para['Intercept'] = intercepts
+    filt_para['m'] = [m] * len(intercepts)
     filt_para['New Start Vertex'] = starts
     filt_para['New End Vertex'] = ends
     return filt_para
@@ -186,6 +174,7 @@ def perp_line(filt_perp, m):
     m = (-1) / m
     starts = []
     ends = []
+    intercepts = []
     for index, row in filt_perp.iterrows():
         orig_start, orig_end = row['Start Vertex'], row['End Vertex']
         intercept =  (((- 1 / 2) * m) * (orig_start[0] + orig_end[0])) + ((1/2) * (orig_start[1] + (orig_end[1])))
@@ -201,7 +190,11 @@ def perp_line(filt_perp, m):
         end = (- new_end_x, new_end_y)
         starts.append(start)
         ends.append(end)
-        
+        intercepts.append(intercept)
+      
+    filt_perp['Intercept'] = intercepts
+    print(len(intercepts))
+    filt_perp['m'] = [m] * len(intercepts)
     filt_perp['New Start Vertex'] = starts
     filt_perp['New End Vertex'] = ends
     return filt_perp
@@ -235,7 +228,10 @@ def plot_perpendiculars(perp, dim, crop=True):
     fig, ax = plt.subplots(1,1,figsize=(20,20))
     ax.imshow(background)
     return background  
-    
+
+def concat_df(ortho, perp):
+    result = pd.concat([ortho, perp], sort=True)
+    return result
 
 def plot_grid(ortho, perp, dim, crop=True):
     background = np.zeros((800,800))
@@ -251,6 +247,21 @@ def plot_grid(ortho, perp, dim, crop=True):
     fig, ax = plt.subplots(1,1,figsize=(20,20))
     ax.imshow(background)
     return background
+
+def plot_original_corners(arr, crop=True):
+    buffer = 25
+    intcorners = arr.astype(int)
+    blank = np.zeros((800,800))
+    minx, miny = intcorners[:, 1].min(), intcorners[:, 0].min()
+    maxx, maxy = intcorners[:, 1].max(), intcorners[:, 0].max()
+    for i in range(len(arr)):
+        blank[intcorners[i, 0]][intcorners[i, 1]] = 255
+    if crop == True:
+        blank = blank[miny - buffer: maxy + buffer, minx - buffer: maxx + buffer]
+    fig, ax = plt.subplots(1,1,figsize=(20,20))
+    ax.imshow(blank)
+    dim = [minx, miny, maxx, maxy]
+    return blank, dim
 
 
 def label_regions(lattice):
@@ -269,13 +280,31 @@ def label_regions(lattice):
     
     return d2          
 
-
+def find_lattice_vertices(ortho, perp):
+    xcoords = []
+    ycoords = []
+    m_o = np.array(ortho['m'])[0]
+    m_p = np.array(perp['m'])[0]
+    # Calculate intersection points from manually inverting matrix 
+    for i, r_o in ortho.iterrows():
+        c_o = r_o['Intercept']
+        for j, r_p in perp.iterrows():
+            c_p = r_p['Intercept']
+            x = (1 / (m_o - m_p)) * (m_o * c_p - m_p * c_o)
+            y = (1 / (m_o - m_p)) * (c_p - c_o)
+            xcoords.append(x)
+            ycoords.append(y)
+    vertices = pd.DataFrame({"x_coord": xcoords,
+                             "y_coord": ycoords})    
+    
+    return vertices
+            
 
 if __name__ == "__main__":
     filt_para, filt_perp, m = find_orientation(corners)
     ortho = ortho_line(filt_para, m)
     perp = perp_line(filt_perp, m)
-    corner_pts, dim = plot(corners, crop=True)
+    corner_pts, dim = plot_original(corners, crop=True)
     poly = draw_polygon(corners, crop=True)
     fill = fill_polygon(corners, crop=True)
     para = plot_parallels(ortho, dim, crop=True)
@@ -288,6 +317,8 @@ if __name__ == "__main__":
     ax[0][1].imshow(corner_pts)
     ax[1][0].imshow(lattice)
     ax[1][1].imshow(regions)
+    
+    concat = concat_df(ortho, perp)
 
 
 buffer = 25
