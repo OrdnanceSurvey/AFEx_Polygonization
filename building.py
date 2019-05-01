@@ -43,18 +43,18 @@ class BuildingTile:
     
     def __init__(self, segment):
         self.segment = segment
-        self.__tile = Building.TILE
-        self.__appendage = Building.APPENDAGE
-        self.__extras = Building.EXTRAS
+        self.__tile = BuildingTile.TILE
+        self.__appendage = BuildingTile.APPENDAGE
+        self.__extras = BuildingTile.EXTRAS
         
     def _get_mask_folder(self):
-        mask_folder = os.path.join(Building.ROOT_DIR, 
+        mask_folder = os.path.join(BuildingTile.ROOT_DIR, 
                                    rf'{self.__tile}_{self.__appendage}', 
                                    rf'buildings_masks{self.__extras}')
         return mask_folder
     
     def _get_img_path(self):
-        img_path = os.path.join(Building.ROOT_DIR, 
+        img_path = os.path.join(BuildingTile.ROOT_DIR, 
                                    rf'{self.__tile}_{self.__appendage}',
                                    rf'{self.segment}.tif') 
         return img_path                                  
@@ -79,7 +79,7 @@ class BuildingTile:
         import numpy as np
         
         mask = self.get_mask()
-        labelled = label(padded_mask)
+        labelled = label(mask)
         count = len(np.unique(labelled))
         return count
     
