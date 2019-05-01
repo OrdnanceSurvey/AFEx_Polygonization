@@ -29,13 +29,15 @@ def pad_with(vector, pad_width, iaxis, kwargs):
     vector[-pad_width[1]:] = pad_value
     return vector
 
-segment = '6_8'
+segment = '1_6'
+
+imager"O:\tiled\GT1033_HACK_RGB800\buildings_masks_epoch50_09\buildings_1_6.tif"
 
 img_path = rf"O:\tiled\SJ7394\buildings_masks\buildings_{segment}.tif"
 rgb_path = rf"O:\tiled\SJ7394\{segment}.tif"
 
-img = cv2.imread(img_path, 0)
-bgr = cv2.imread(rgb_path)
+img = imread(img_path, as_gray=True)
+bgr = imread(rgb_path)
 rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 #padded = np.pad(img, 1, pad_with)
@@ -55,7 +57,7 @@ blank = np.zeros_like(padded)
 output = np.zeros_like(padded)
 
 
-candidate = 6
+candidate = 4
 
 props = regionprops(labelled_img)
 prop = props[candidate]
